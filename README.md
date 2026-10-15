@@ -1,7 +1,7 @@
 # datacard-generator
 
-An agent skill that writes **Genesis Mission Datacards** (schema v2.0.0) for
-scientific datasets. Point it at a dataset folder and it fills in the card,
+An agent skill that writes **Genesis Mission Datacards** (schema v2.0.0 + xCard
+spine) for scientific datasets. Point it at a dataset folder and it fills in the card,
 asking you for what it can't work out. It also converts older MODCON v1 and
 Genesis v1.2 cards.
 

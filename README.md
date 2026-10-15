@@ -11,13 +11,15 @@ Clone it into your agent's skills folder:
 
 ```bash
 # Claude Code
-git clone --branch v2.1.0 https://github.com/jeanbez/datacard-generator-skill.git \
+git clone https://github.com/jeanbez/datacard-generator-skill.git \
   ~/.claude/skills/datacard-generator
 
 # other agents
-git clone --branch v2.1.0 https://github.com/jeanbez/datacard-generator-skill.git \
+git clone https://github.com/jeanbez/datacard-generator-skill.git \
   ~/.agents/skills/datacard-generator
 ```
+
+To update later, run `git pull` in that folder.
 
 The scripts run with [uv](https://docs.astral.sh/uv/) (`brew install uv`), which
 installs their dependencies automatically.

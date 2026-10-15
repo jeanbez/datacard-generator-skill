@@ -1,0 +1,201 @@
+# PROVISIONAL — NOT AN UPSTREAM RELEASE.
+#
+# Extends the vendored Genesis Datacard v2.0.0 schema with the xCards registry
+# spine: a small projection of container fields to the top-level paths the
+# registry's parser reads (discovery-engine, src/genesis/card_schema/_parser.py).
+#
+# Why this exists: the registry reads pre-capability-container paths, so a
+# v2.0.0 card registers as CardType.UNKNOWN with no title. Upstream cannot
+# release a v2.1 yet and the registry is fixed, so the card carries the spine
+# and this overlay makes that legal.
+#
+# Delete this file when upstream publishes a real v2.1, re-vendor
+# scripts/genesis_datacard.yaml, and point step 9 back at
+# GenesisDatacardClass.
+#
+# Note on authoring: this extends the vendored class with `is_a` rather than
+# redeclaring GenesisDatacardClass. Redeclaring it OVERRIDES the imported
+# definition and every v2.0.0 slot is then rejected as an additional property.
+id: https://genesis.local/provisional/genesis_datacard_v2_1
+name: genesis_datacard_v2_1_provisional
+title: Genesis Datacard v2.0.0 plus provisional xCards registry spine
+description: >-
+  PROVISIONAL, NOT AN UPSTREAM RELEASE. Genesis Datacard v2.0.0 extended with
+  the xCards registry spine. Validate provisional cards against
+  GenesisDatacardSpinedClass. A card with no spine also validates against it,
+  so one target class serves both modes.
+version: 2.1.0-provisional
+license: MIT
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  genesis: https://genesis.local/provisional/
+default_prefix: genesis
+default_range: string
+
+imports:
+  - linkml:types
+  - genesis_datacard
+
+enums:
+
+  SpineRiskEnum:
+    description: >-
+      The registry's SensitivityLevel vocabulary, as the spine may express it.
+      Constrained because `risk` is the one spine value that controls access and
+      nothing else checks it: the registry parses an unrecognised string as
+      `unknown`, and Clearance.PUBLIC covers {general, unknown}, so a typo such
+      as `restrcited` would silently publish a restricted dataset. `unknown` is
+      deliberately absent — the projection must never emit it, and an absent tag
+      already reads as unknown.
+    permissible_values:
+      general:
+        description: Openly shareable.
+      reviewed:
+        description: Shareable after review.
+      restricted:
+        description: Controlled — not for general distribution.
+
+classes:
+  SpineIdentifierClass:
+    description: Registry-facing identifier. Mirrors an IdentifierClass value.
+    attributes:
+      value:
+        required: true
+        description: Projected from the container's identifier value.
+
+  SpineDatacardClass:
+    description: >-
+      Registry-facing datacard block. Projected from
+      discoverability.datacard. Distinct from it: the registry reads this one
+      at the top level.
+    attributes:
+      id:
+        range: SpineIdentifierClass
+        description: Projected from discoverability.datacard.id.
+      datacard_version:
+        description: Projected from discoverability.datacard.datacard_version.
+
+  SpineIdentificationClass:
+    description: >-
+      Registry-facing identification block. Projected from
+      discoverability.identification. `name` is what becomes Card.title, and
+      the registry's validator errors without it.
+    attributes:
+      name:
+        required: true
+        description: Projected from discoverability.identification.name.
+      version:
+        description: Projected from discoverability.identification.version.
+
+  SpineTagsClass:
+    description: >-
+      Registry-facing tags. The registry's validator warns when `project` or
+      `science` is absent, so both are needed for a clean strict-mode pass.
+    attributes:
+      project:
+        description: Projected from dataset_description.tags.project.
+      science:
+        description: Projected from dataset_description.science_domain[0].
+      risk:
+        range: SpineRiskEnum
+        description: >-
+          The registry's sensitivity, which it uses for access filtering. Its
+          vocabulary is only general | reviewed | restricted | unknown, so this
+          is a deliberately conservative mapping.
+
+          The source is discoverability.sensitivity.overall_sensitivity — the
+          DATASET's — because that is what the registry filters access to.
+          Where it disagrees with discoverability.datacard.sensitivity (the
+          CARD's), the STRICTER of the two wins: a CUI dataset described by a
+          deliberately shareable Public card is the normal arrangement and the
+          reason v2 separated the two blocks.
+
+          Public and Unclassified_Uncontrolled become `general`; every
+          controlled category (CUI, UCNI, Classified, Legacy_Controlled,
+          Other_Controlled, Mixed) becomes `restricted`; anything with no
+          mapping also becomes `restricted`.
+
+          overall_sensitivity is not the sole governance basis — the vendored
+          schema says so of the slot itself, and nothing stops a card pairing
+          `overall_sensitivity: Public` with `cui_status: Yes` (every rule in
+          SensitivityClass has overall_sensitivity as its precondition, so
+          there is no reverse check). If classified_status, cui_status or
+          ucni_status is `Yes` in EITHER block, `risk` is `restricted`
+          whatever overall_sensitivity says. Never map a controlled category
+          to `general`, and never leave this unset — the registry reads an
+          absent risk tag as `unknown`, and Clearance.PUBLIC covers
+          {general, unknown}, so an unset tag is as permissive as `general`.
+          Under-restricting here is the dangerous direction, and `Mixed` means
+          part of the dataset is controlled.
+
+  SpineDescriptionClass:
+    description: >-
+      Registry-facing description. Projected from
+      dataset_description.dataset_summary. Without it the registry records an
+      empty description, which makes the dataset undiscoverable by the search
+      the registry exists to provide.
+    attributes:
+      summary:
+        description: Projected from dataset_description.dataset_summary.
+
+  SpineCategorizationClass:
+    description: >-
+      Registry-facing categorization. task_category and task_subcategory
+      become the IOContract's task_tags, without which the Workflow Composer
+      cannot use the dataset as a pipeline step.
+    attributes:
+      tags:
+        range: SpineTagsClass
+      task_category:
+        multivalued: true
+        description: Projected from dataset_description.task_category.
+      task_subcategory:
+        multivalued: true
+        description: Projected from dataset_description.task_subcategory.
+
+  SpineDatasetInfoClass:
+    description: >-
+      Registry-facing dataset info. data_formats are mapped to MIME types and
+      placed in the IOContract's output_modes, which is what makes a dataset a
+      source step feeding models.
+    attributes:
+      data_formats:
+        multivalued: true
+        description: Projected from interoperability.data_structure.formats.
+      modalities:
+        multivalued: true
+        description: Projected from the dataset's modalities, where recorded.
+
+  SpineLicenseClass:
+    description: >-
+      Registry-facing license. Projected from reusability.license. Without it
+      the registry records no license for the dataset at all.
+    attributes:
+      spdx_id:
+        description: Projected from reusability.license.spdx_id.
+      name:
+        description: Projected from reusability.license.name.
+      url:
+        description: Projected from reusability.license.url.
+
+  GenesisDatacardSpinedClass:
+    is_a: GenesisDatacardClass
+    description: >-
+      A v2.0.0 datacard plus the provisional xCards registry spine. The spine
+      duplicates facts that already live in the capability containers, so it
+      is a projection and never a source of truth: on any disagreement the
+      container wins.
+    attributes:
+      datacard:
+        range: SpineDatacardClass
+      identification:
+        range: SpineIdentificationClass
+      categorization:
+        range: SpineCategorizationClass
+      dataset_info:
+        range: SpineDatasetInfoClass
+      license:
+        range: SpineLicenseClass
+      description:
+        range: SpineDescriptionClass
